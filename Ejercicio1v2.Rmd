@@ -37,9 +37,9 @@ library(doBy)
 
 Setting the working directory
 
-```{r} 
-setwd("~/Documents/Master Big Data/15 Programacion Estadistica/Practicas")
-```
+#```{r} 
+#setwd("~/Documents/Master Big Data/15 Programacion Estadistica/Practicas")
+#```
 
 ## -------------------------------------------------------------------------
 
@@ -57,13 +57,15 @@ donde P es el precio de la vivienda, i es una vivienda concreta, t es el año de
 
 El segundo enfoque para corregir por las diferencias de calidad de las viviendas es el procedimiento de las ventas repetidas. Esta metodología consiste en utilizar una muestra de viviendas cuya calidad no haya cambiado en el tiempo, con excepción de algunas pequeñas reformas o la depreciación de las mismas. De esta forma, es razonable suponer que la variación en el precio entre dos ventas sucesivas de la misma vivienda es un cambio puro de los precios, sin efectos de calidad, dado que se trata del mismo bien.
 
-A lo largo de la práctica se construirán y estimarán modelos de precios hedónicos mediante estimaciones OLS. En último lugar, se relizará un pequeño ejercicio de clusters
+A lo largo de la práctica se construirán y estimarán modelos de precios hedónicos mediante estimaciones OLS. En caso de que existieran ID repetidos, con variabilidad en el date asociado a la información, podría intentarse el enfoque de compras repetidas (aunque fueran fechas de tasación, etc…). 
+
+En último lugar, se relizará un pequeño ejercicio de clusters
 
 ## -------------------------------------------------------------------------
 
 ## -------------------------------------------------------------------------
  
-### 1. Análisis Decriptivo
+### 1. Análisis Descriptivo
 
 Descripción del dataset 'house_train' -según lo descrito en el enunciado de la práctica:
 
@@ -104,20 +106,30 @@ Revisión del data set
 ```{r}
 str(house_train)
 head(house_train)
+summary(house_train)
 ```
 
-Se incluye un apartado de caracter introductorio, en el que se realizará:
-i) estadística descriptiva univariante y multivariante del dataframe house_train.
-ii) análisis de correlaciones entre variables dependiente (price) e independiente y entre varaibles independientes pairwise
+Se incluye un apartado de carácter introductorio, en el que se realizará:
+i) estadística descriptiva univariante y multivariante del dataframe house_train
+ii) análisis de correlaciones entre variables dependiente (price) e independiente y entre variables independientes pairwise
 iii) transformaciones de variables con el objetivo de modelización y estimación OLS
-iV) análisis de colinealidad mediante VIF
-V) eliminación de outliers -en caso de que sea necesario-
+iv) análisis de colinealidad mediante VIF
+v) eliminación de outliers -en caso de que sea necesario-
+
 
 A lo largo de todo el ejercicio, se intentará aplicar el enfoque: "Let's the data speak for themselves".
 
-El dataframe house_train contiene 17.384 observaciones y 21 variables.  Las variables son de distintos tipos: numéricas y strings. 
+El dataframe house_train contiene 17.384 observaciones y 21 variables. Las variables son de distintos tipos: numéricas y strings. 
 
-La variable 'date' parece reflejar la fecha de recogida de la observación. Se desconoce si es de utilidad, es decir, si está asociada a la fecha de fijación del precio (venta). Se crean las variables 'year' y 'month', para estudiar si hay variablidad y podría estar ligado a fecha de venta (o quizá de tasación). 
+Análisis de los id:
+
+```{r}
+id_rep<-length(house_train$id)-length(unique(house_train$id))
+```
+
+Hay 111 id repetidos.
+
+La variable 'date' parece reflejar la fecha de recogida de la observación. Se desconoce si es de utilidad, es decir, si está asociada a la fecha de fijación del precio (venta). Se crean las variables 'year' y 'month', para estudiar si hay variabilidad y podría estar ligado a fecha de venta (o quizá de tasación). 
 
 ```{r}
 house_train$year <- substr(house_train$date, start=1, stop=4)
@@ -135,6 +147,12 @@ drops1 <- c("date","year","month")
 house_train<-house_train[ , !(names(house_train) %in% drops1)]
 ```
 
+Tomando esta variable 'year' tan solo dos valores, se eliminan los id duplicados.
+
+```{r}
+house_train<-house_train[!duplicated(house_train[,1]),]
+```
+
 Se analiza si existe missing values. En caso de que así sea, se estudiará si los patrones son aleatorios y se puede proceder a la imputación de valores, o si no lo son y hay que proceder a su eliminación. Para este análisis se podría utilizar el test de Little.
 
 ```{r}
@@ -146,6 +164,7 @@ No hay missing values.
 ### Análisis descriptivo de los datos
 
 El análisis descriptivo básico de las variables incluye: medidas de posición central, medidas de posición no central y medidas de dispersión. 
+
 En primer lugar, se procede a una análisis descriptivo básico de las dos variables objeto de estudio: price y squared_living. Se añade análisis descriptivo del resto de variables, ya que será necesario para la formulación del modelo extendido.
 
 Medidas de posición central: media, mediana, moda.
@@ -185,7 +204,7 @@ quartiles_col
 
 Medidas de dispersión: desviación típica, rango interquartílico, rango, coeficiente de variación de Pearson.
 - Medidas de dispersión absoluta- desviación típica, rango interquartílico, rango- tratan la  dispersión 
- - Medidas de dispersion relativa -coeficiente de variación de Pearson- miden la variabilidad independientemente de la unidad de medida, permitinedo la comparación
+- Medidas de dispersion relativa -coeficiente de variación de Pearson- miden la variabilidad independientemente de la unidad de medida, permitinedo la comparación
 
 El coeficiente de variación de Pearson parece no estar implementada como función en R, por lo que se creará la función ad hoc
 
@@ -224,7 +243,9 @@ apply(house_train[,c(-1,-17, -18, -19)], 2, kurtosis)
 
 A continuación, se realizará un estudio gráfico de las distribuciones de las variables (univariante y multivariante).
 
-Gran parte de la información ya analizada puede visualizarse mediante boxplot. Asimimo, se puede detectar visualmente la presencia de outliers. En segundo lugar se incluirán histogramas para visualizar la forma de la distribución (ggplot+geom_histogram). En tercer lugar se incluirán scatterplots y matrices de correlación (ggairs).
+Gran parte de la información ya analizada puede visualizarse mediante boxplot. Asimimo, se puede detectar visualmente la presencia de outliers. 
+En segundo lugar se incluirán histogramas para visualizar la forma de la distribución (ggplot+geom_histogram). 
+En tercer lugar se incluirán scatterplots y matrices de correlación (ggairs).
 
 ```{r echo=FALSE} 
 boxplot(house_train$price)
@@ -233,7 +254,7 @@ ggplot(data=house_train) + geom_histogram(aes(x=house_train$price)) + ggtitle("P
 
 La variable dependiente es 'price'. La distribución de 'price', como la de casi todas las variables de tipo monetario, es highly-skewed, right-skewed; y con gran número de outliers. Se procede a su normalización mediante la transfomación logarítmica.
 
-Como regla general, se trata de escoger una transformación que conduzca a una distribución simétrica, y más cercana a la distribución normal. De este modo, se podrán aplicar numerosas técnicas de inferencia estadística. Para distribuciones right-skewed se usan las transformaciones √x, ln(x) y 1/x, que comprimen los valores altos y expanden los pequeños. La transformación más utilizada es la logarítmica. Muchas distribuciones de datos económicos, o de consumos se convierten en simétricas al tomar la transformación logarítmica.
+Como regla general, se trata de escoger una transformación que conduzca a una distribución simétrica, y más cercana a la distribución normal. De este modo, se podrán aplicar numerosas técnicas de inferencia estadística. Para distribuciones right-skewed se usan las transformaciones √x, ln(x) y 1/x, que comprimen los valores altos y expanden los pequeños. La transformación más utilizada es la logarítmica. Muchas distribuciones de datos económicos, o de consumos se convierten en simétricas al tomar la transformación logarítmica. Adicionalmente, cuando se proceda a estimar coeficientes de las relaciones entre variables, los logaritmos facilitan la interpretación de los mismos.
 
 ```{r echo=FALSE}
 ggplot(aes(x = log(price)), data = house_train) + ggtitle("Log(price) distribution") + geom_histogram(fill = "black", color = "grey")
@@ -354,7 +375,7 @@ cor(house_train$sqft_living, house_train$sqft_living15)
 cor(house_train$sqft_living, house_train$sqft_above)
 ```
 
-sqft-living y sqft-lving15 tienen una correlación muy alta, 0.77; sqft-living y sqft-above tienen correlación del 0.88. Parece que aportan información similar, por lo que la inclusión de una de ellas bastará para el análisis; en caso contrario en la estimación nos encontraremos con problemas de multicolineaidad. Se optará por sqft-living, ya que se desconoce el valor de sqft-living15; y se ha señalado en el enunciado como variable fundamental de análisis la rpimera.
+sqft-living y sqft-lving15 tienen una correlación muy alta, 0.77; sqft-living y sqft-above tienen correlación del 0.88. Parece que aportan información similar, por lo que la inclusión de una de ellas bastará para el análisis; en caso contrario en la estimación nos encontraremos con problemas de multicolineaidad. Se optará por sqft-living, ya que se desconoce el valor de sqft-living15; y se ha señalado en el enunciado como variable fundamental de análisis la primera.
 
 ```{r echo=FALSE}
 boxplot(house_train[,c("sqft_lot","sqft_lot15")])
@@ -368,7 +389,7 @@ sqft-lot y sqft-lot15 tienen una correlación muy alta. De nuevo, se optará por
 
 Estas correlaciones tan altas entre sqft-living y sqft-living15, y sqft-lot y sqft-lot15 parece apuntar a que son variables colineales.
 
-Se han preseleccionado, hasta este punto, como variables determinantes de la superficie, sqfrt-living y sqft-lot. Se procede a abnalizar su relación.
+Se han preseleccionado, hasta este punto, como variables determinantes de la superficie, sqfrt-living y sqft-lot. Se procede a analizar su relación.
 
 ```{r echo=FALSE}
 ggpairs(house_train[,c("price","sqft_living","sqft_lot")])
@@ -384,7 +405,7 @@ squared-above y squared-basement son medidas de alguna superficie, por los nombr
 ggpairs(house_train[,c("price","sqft_above","sqft_basement")])
 ```
 
-squared-above tiene una relación con price similar a squared-living, aunque la correlación es menor. Es decir, parece lineal, y a partir de un valor observado se incrementa la variabilidad. squared_basement tiene una correlación de 0.33 con precio, se percibe relación de tipo lineal pero con mucha variabilidad. Curisamente la correlación entre ellas es muy baja y de signo negativo.
+squared-above tiene una relación con price similar a squared-living, aunque la correlación es menor. Es decir, parece lineal, y a partir de un valor observado se incrementa la variabilidad. squared_basement tiene una correlación de 0.33 con precio, se percibe relación de tipo lineal pero con mucha variabilidad. Curiosamente la correlación entre ellas es muy baja y de signo negativo.
 
 ```{r}
 table(house_train$sqft_basement==0)
@@ -413,8 +434,7 @@ El logaritmo de sqft_living sigue una distribución aparentemente simétrica, co
 qqnorm(house_train$logsq_living) ; qqline(house_train$logsq_living)
 ```
 
-
-Análisi gráfico multivariante: se procede al análisis gráfico conjunto de price y sqft-living. Los resultados se tendrán en cuenta a la hora de modelizar mediante OLS, ya que una de las exigencias del modelo es la linealidad.
+Análisis gráfico multivariante: se procede al análisis gráfico conjunto de price y sqft-living. Los resultados se tendrán en cuenta a la hora de modelizar mediante OLS, ya que una de las exigencias del modelo es la linealidad.
 
 ```{r echo=FALSE}
 plot_center = ggplot(house_train, aes(x=sqft_living,y=price)) + 
@@ -516,10 +536,9 @@ hist(res$Best.nc[1, ], breaks = 8, main = "Clusters", xlab = "k")
 
 Se repite la clusterización en un script de python. Se incluye como entregable (house_cluster.ipynb). Con R no ha sido posible realizar este ejercicio. 
 
-Se concluye que el número óptimo de clusters teniendo en cuenta zipcode son 6. Si se ejecuta kmeans de nuevo con todas la variables, eliminando date, el número óptimo de cluster se sitúa en 4. Estas agrupaciones, son de gran importancia para la categorización de variables como zipcode que toma 70 registros. No se puede incluir en la regresión OLS una dummy con 70 registros ya que la ecuación estaría muy desbalanceada; y sabemos que zipcode tiene importancia en el precio.
+Se concluye que el número óptimo de clusters teniendo en cuenta zipcode es 6. Si se ejecuta kmeans de nuevo con todas la variables, eliminando date, el número óptimo de cluster se sitúa en 4. Estas agrupaciones, son de gran importancia para la categorización de variables como zipcode que toma 70 registros. No se puede incluir en la regresión OLS una dummy con 70 registros ya que la ecuación estaría muy desbalanceada; y hemos comprobado que zipcode tiene importancia en el precio 
 
-Por ello, se va a proceder a agrupar zipcode en 5 grupos (no es la mejor técnica pero no nos funciona la insrucción de clsuter), según el percentil del price. 
-
+Por ello, se va a proceder a agrupar zipcode en 5 grupos (no es la mejor técnica pero no nos funciona la instrucción de cluster), según el percentil del price. 
 
 ```{r}
 per_price<-quantile(house_train$price, probs = seq(0, 1, by= 0.2)) # decile
@@ -556,7 +575,7 @@ house_train$catzip <- ifelse(house_train$zipcode %in% zip1,1,
     
 ```                      
 
-Tabla de frecuecnias de la nueva varaible zip categorizada según percentiles y medianas de precios.
+Tabla de frecuecnias de la nueva variable zip categorizada según percentiles y medianas de precios.
 
 ```{r}
 table(house_train$catzip)
@@ -618,7 +637,6 @@ plot_center = ggplot(df_renovated, aes(x=years,y=price)) +
 ggMarginal(plot_center, type="histogram")
 ```
 
-
 En último lugar, por pura curiosidad, habiendo observado lo importante que son los bathrooms en el price de una residencia, se analiza si las casas renovadas aumentan su número de bedrooms o bathrooms.
 
 ```{r echo=FALSE}
@@ -629,7 +647,7 @@ ggpairs(house_train[,c("bedrooms","bathrooms","yr_built")])
 ggpairs(house_train[,c("bedrooms","bathrooms","yr_renovated")])
 ```
 
-De estos dos ggpairs se concluye, que existe una relación positiva entre year-built y year-renovated y el número de bathrooms, no así con el número de bedrroms. ¿Refleja un cambio de preferencias a lo largo de los años? 
+De estos dos ggpairs se concluye, que existe una relación positiva entre year-built y year-renovated y el número de bathrooms, no así con el número de bedoroms. ¿Refleja un cambio de preferencias a lo largo de los años? 
 
 Grupo 5. Variables categóricas desconocidas: condition y grade
 
@@ -709,29 +727,28 @@ Conclusiones del análisis exploratorio:
 
 - sqft-living15 también exhibe una alta correlación con price. No obstante, si se controla por sqft-living la potencia de la correlación desaparece. 
 
-- sqft-lot, sqft_lot15 y yr-built tienen una baja correlación con price 
+- sqft-lot, sqft_lot15 y yr-built tienen una baja correlación con price. 
 
- yr-renovated es distinto de cero en tan solo el 5% de los casos. Aunque presenta una correlación con price relativamente baja se ha construido una variable dummy para recoger esta información
+ yr-renovated es distinto de cero en tan solo el 5% de los casos. Aunque presenta una correlación con price relativamente baja se ha construido una variable dummy para recoger esta información.
 
 - waterfront y view tienen una correlación positive y moderada con price: 0.3 y 0.4
 
-- Las variables relativas a las dependencias de una residencia tiene correlaciones positivas significativas con price: bathrooms y floors tienen una correlación alta del 0.5 y bedrooms del 0.3.  Estas tres varaibles tienen correlaciones altas entre sí (no bedrooms con floors) y con sqft-living
-
+- Las variables relativas a las dependencias de una residencia tiene correlaciones positivas significativas con price: bathrooms tiene una correlación alta del 0.5 y floos y bedrooms, tienen una correlación positiva modeada, del 0.3.  Estas tres variables tienen correlaciones altas entre sí (no bedrooms con floors) y con sqft-living
 
 
 Colinealidad-VIF
 
 Existe multicolinealidad entre las variables explicativas cuando existe algún tipo de dependencia lineal entre ellas. La correlación no solamente se refiere a las distintas variables dos a dos, sino a cualquier de ellas con cualquier grupo de las restantes. Por esta razón no es suficiente (aunque sí necesaria) que en la matriz de correlaciones bivariadas haya correlaciones altas.
 
-El principal inconveniente de la multicolinealidad consiste en que se incrementan la varianza de los coeficientes de regresión estimados hasta el punto que resulta prácticamente imposible establecer su significación estadística. Es decir, las elevadas varianzas hacen que los parámetros estimados sean imprecisos e inestables.
+El principal inconveniente de la multicolinealidad consiste en que se incrementan la varianza de los coeficientes de regresión estimados hasta el punto que resulta prácticamente imposible establecer su significación estadística. Es decir, las elevadas varianzas hacen que los parámetros estimados sean imprecisos e inestables (no convergencia).
 
 En econometría no se dispone de contrastes construidos expresamente para detectar la multicolinealidad, puesto que el problema descansa más bien en la muestra que en la población.
 
 Un método para detectar la colinealidad consiste en calcular el factor de incremento de la varianza (VIF). Valores del VIF > 5 están asociados a R cuadrados > 0,8 en cuyo caso se puede considerar que las consecuencias pueden ser relevantes.
 
 ```{r}
-drops2 <- c("date","sqft_living15","sqft_lot15", "month", "year", "renovated", "id", "bedroomscat", "bathroomscat", "floorscat", "conditioncat", "gradecat", "viewcat", "waterfrontcat", "sqft_basement", "logprice", "logsq_living", "sqft_above","zipcode", "catzip") 
-# se eliminan aquells variables creadas en el exploratorio asi como las que determina la función alias
+drops2 <- c("date","sqft_living15","sqft_lot15", "month", "year", "renovated", "id", "bedroomscat", "bathroomscat", "floorscat", "conditioncat", "gradecat", "viewcat", "waterfrontcat", "sqft_basement", "logprice", "logsq_living", "sqft_above", "catzip2", "zipcodecat", "zipcode") 
+# se eliminan aquells variables creadas en el exploratorio asi como las que determina la función alias sqft_basement
 house_train_VIF<-house_train[ , !(names(house_train) %in% drops2)]
 ```
 
@@ -759,13 +776,13 @@ En la última parte de la práctica, en la de estimación de la regresión econo
 
 Ultimas consideraciones sobre el exploratorio: 
 
-- Técnicas de reducción de la dimensión: se podrían aplicar técncas de reduciión de las dimensiones tipo PCA, eligiendo aquellos factores que expliquen un % de la varianza que se considere razonable. El problea de PCA es que las betas estimadas de los factores son de difícil interpretación. Es  decir, la estimación puede ser "buena" pero la interpretabilidad de los coefcientes prácticamente imposible.
+- Técnicas de reducción de la dimensión: se podrían aplicar técnicas de reducción de las dimensiones tipo PCA, eligiendo aquellos factores que expliquen un % de la varianza que se considere razonable. El problema de PCA es que las betas estimadas de los factores son de difícil interpretación. Es  decir, la estimación puede ser "buena" pero la interpretabilidad de los coeficientes prácticamente imposible. Predecir con factores, tiene difícil encaje.
  
  -Técnicas de análisis de la capacidad predictiva del modelo: WoE e IV. No son de aplicación ya que la variable dependiente no es de tipo binario.
 
- _ Otrastécnicas de selección de variables: podrían aplicarse técnicas de selección de variables como el algoritmo Boruta que está implementado en R. Como no se han repasado estas técnicas en clase, se adjunta un archivo separado de R en la que se aplica esta técnica. 
+ _ Otras técnicas de selección de variables: podrían aplicarse técnicas de selección de variables como el algoritmo Boruta que está implementado en R. Se adjunta un R.markdown Boruta.Rmd en el que se palica el algortimo de Boruta. Los resultados es que ninguna de las varaibles consideradas puede considerarse "unimportant". 
 
-- Limpieza de outliers: En bienes que se adquieren pocas veces en la vida de un consumidor y que pueden tener para cada adquirente  un carácter único, individualizable e irrempazable -como es el caso de un residencia- debería contemplarse gran variabilidad y presencia de outliers. La limpieza de outliers - en todo caso a nivel multivariante con la distancia de Mahalanovis, por ejemplo- debe de realizarse con mucha precaución.  En este tipo de bienes pueden encontrase discontinuidades, es decir, mercados segmentados. Esto se analizará más adelante mediante estadísticos robustos.
+- Limpieza de outliers: En bienes que se adquieren pocas veces en la vida de un consumidor y que pueden tener para cada adquirente  un carácter único, individualizable e irrempazable -como es el caso de un residencia- debería contemplarse gran variabilidad y presencia de outliers. La limpieza de outliers - en todo caso a nivel multivariante con la distancia de Mahalanovis, por ejemplo- debe de realizarse con mucha precaución.  Asimismo, al no considerarse la variable tiempo, la presencia de outliers asociados a burbujas o caídas repentinas -los verdaderos problemas de outliers en el mercado de vivienda- desaparecen. En este tipo de bienes pueden encontrase discontinuidades, es decir, mercados segmentados. Esto se analizará más adelante mediante estadísticos robustos.
 
 ## -------------------------------------------------------------------------
 
@@ -797,7 +814,7 @@ El punto 1 y el 2, se revisan o se prueban, generalmente, antes de hacer la regr
 
 1) Normalidad: 
 
-Todos nuestros datos, tanto nuestras variables independientes así como nuestra variable dependiente, tienen que tener puntajes que están distribuidos normalmente. Más específicamente los residuos (error) de estos puntajes deben tener una distribución normal. La regresión es un análisis lineal y por ello, trabaja con relaciones lineales. Cuando los errores de las variables tienen distribución no normal, pueden afectar las relaciones y la significatividad. ¿Por qué se enfocan en los errores y no la medición en sí? Porque en una regresión lineal también es posible poner variables dicotómicas (sexo) y estas no tienen una distribución normal 
+Todos nuestros datos, tanto nuestras variables independientes así como nuestra variable dependiente, tienen que tener puntos que están distribuidos normalmente. Más específicamente los residuos (error) de estos puntos deben tener una distribución normal. La regresión OLS es un análisis lineal y por ello, trabaja con relaciones lineales. Cuando los errores de las variables tienen distribución no normal, pueden afectar las relaciones y la significatividad. ¿Por qué se enfocan en los errores y no la medición en sí? Porque en una regresión lineal también es posible poner variables dicotómicas (sexo) y estas no tienen una distribución normal 
 
 2) Relación lineal
 
@@ -846,6 +863,7 @@ Estos cuatro gráficos son de gran utilidad para analizar si se cumplen los supu
 - En este caso, la aplicación de OLS no es correcta ya que no se cumplen los supuestos de homogeneidad ninormalidad 
 
 De todas formas, la estimación de las betas del modelo con su intervalo de confianza al 95% sería: 
+
 ```{r}
 confint(modelo0,level=0.95)
 ```
@@ -862,7 +880,7 @@ par(modelo1frow = c(2, 2))
 plot(modelo1)
 ```
 
-En este caso, parece que se cumplen los supuestos de normalidad y homogeneidad; auque existe una gran presencia de outliers. El R^2 es 0.48.
+En este caso, parece que se cumplen los supuestos de normalidad y homocedasticidad; auque existe una gran presencia de outliers. El R^2 es 0.48.
 
 La estimación de la beta del modelo con su intervalo de confianza al 95% es: 
 
@@ -926,6 +944,8 @@ summary(modelo1)$r.squared
 summary(modelo3)$r.squared
 summary(modelo1)$adj.r.squared
 summary(modelo3)$adj.r.squared
+mean(summary(modelo1)$residuals^2)
+mean(summary(modelo3)$residuals^2)
 ```
 
 El criterio de información de Akaike sirve para comparar la plausibilidad relativa de un conjunto de modelos. Es decir, dado un conjunto de modelos construidos con los mismos datos el AIC los ordena según su verosimilitud dados los datos con que se construyen.  Este criterio tiene en cuenta tanto el ajuste del modelo como su complejidad de acuerdo a la fórmula: -2*log-likelihood + k*npar donde el primer término mide el ajuste (es la devianza) y el segundo la complejidad (npar es el número de parámetros y k = 2). Existen otros criterios parecidos como el BIC (en BIC k = log(n)).
@@ -948,7 +968,7 @@ Las tres medidas parecen indicar que el modelo1 (los MSE tamién son menores), e
 
 Primeras conclusiones:
 
-En esta primera fase de aplicación de OLS, con price como variable independiente y sqft_living como varaible independiente, la modelización que cumple con las asunciones para la aplicación de OLS y tiene un R^2 "aceptable"  es la especificación log-level, y en segundo lugar la log-log. 
+En esta primera fase de aplicación de OLS, con price como variable independiente y sqft_living como variable independiente, la modelización que cumple con las asunciones para la aplicación de OLS y tiene un R^2 "aceptable"  es la especificación log-level, y en segundo lugar la log-log. 
 
 ```{r}
 plot_center = ggplot(house_train, aes(x=sqft_living,y=logprice)) + 
@@ -975,7 +995,7 @@ ggMarginal(plot_center, type="histogram")
 
 ### 3.2 La segunda parte del ejercicio consiste en estimar el precio de venta de unos inmuebles de la cartera de la empresa.
 
-Tras el análisis previo de la relación entre price y sqft_living se continuará trabajando con OLS, se procederá a la incorporación de un mayor número de variables y a la comparación y evaluación de los modelos. En caso de tener tiempo, se procederá a la aplicación de técnicas econométricas más complejas.
+Tras el análisis previo de la relación entre price y sqft_living se continuará trabajando con OLS, se procederá a la incorporación de un mayor número de variables y a la comparación y evaluación de los modelos. En caso de tener tiempo, se procederá a la aplicación de técnicas econométricas más complejas. 
 
 En primer lugar se modeliza con todas las variables.
 - Se eliminan sqft-living15 y sqft-lot15 por su alta correlación con sqft-living y sqft-lot. 
@@ -983,10 +1003,10 @@ En primer lugar se modeliza con todas las variables.
 - Se elimina yr-renovated, y condition por su baja correlación con price.  
 - Se mantiene sqfr-lot al acercarse su correlación a 0.2 (dudas)
 - Se mantiene la dummy renovated -ya que hay muy pocas observaciones con año de renovación-. 
-- No se controla en este punto, que se incluyan en la regresión variables independientes altamente correlacionadas como es el caso de sqft-living con las varaibles relativas a las dependencias de la residencia. Esta comprobación se realizará posteriormente.
+- No se controla en este punto, que se incluyan en la regresión variables independientes altamente correlacionadas como es el caso de sqft-living con las varaibles relativas a las dependencias de la residencia. Esta comprobación se realizará posteriormente. 
 - long tiene una corelación muy baja con price, lat tiene una correlación media con price.La ubicación entendemos que ha de recogerse en elzipcode. (Podrían estimarse dos modelos y comparar la F). Si se eliminan del modelo se ha comprobado que la estimación es menos robusta.
-- Nótese que no se han categorizado las variables bedrooms, bathrooms, floors, view, waterfront, grade; por lo que se entiende que hay ordinalidad y cardinalidad (es decir, que dos dormitoriso son el doble que 1, etc...). Su categorización provoca que el modelo esté desblanceado, se puede acabar con más de 100 dummies en el lado derecho
-- Zipcode se ha reagrupado en una variable ordinal (catzip), y se ha categrozado en nivel (catzip2).
+- Nótese que no se han categorizado las variables bedrooms, bathrooms, floors, view, waterfront, grade; por lo que se entiende que hay ordinalidad y cardinalidad (es decir, que dos dormitoriso son el doble que 1, etc...). Su categorización provocaría que el modelo estuviera desblanceado, se puede acabar con más de 100 dummies en el lado derecho
+- Zipcode se ha reagrupado en una variable ordinal (catzip), y se ha categorizado en nivel (catzip2).
 - No se contemplan interaccines entre variables, por ahora.
 
 ```{r}
@@ -996,7 +1016,7 @@ house_train_OLS<-house_train[ , !(names(house_train) %in% drops3)]
 
 - Basement se ha eliminado tras varias pruebas porque no es estadísticamente significativo y porque en una regresión como única varaible independiente tiene baja capacidad predictiva.
 
-Inclusión de la variable de superficie con transformación logarítmica (para su poisble uso)
+Inclusión de la variable de superficie con transformación logarítmica (para su posible uso)
 
 ```{r}
 house_train_OLS$logliving <- log(house_train_OLS$sqft_living)
@@ -1036,7 +1056,7 @@ par(OLS0frow = c(2, 2))
 plot(OLS0)
 ```
 
-Parecen "cumplirse", aunque no de manera estricta, las hipotesis de normalidad y hommocedasticidad.
+Parecen "cumplirse", aunque no de manera estricta, las hipotesis de normalidad y homocedasticidad.
 
 Se procede a la estimación robusta:
 
@@ -1050,12 +1070,12 @@ coef(OLS0)
 coef(OLS0r)
 ```
 
-No hay diferencias considerables entre los estimadores OLS y estimadores OLS robustos. Solo hay diferencias en el estimador de bebrooms.
+No hay diferencias considerables entre los estimadores OLS y estimadores OLS robustos. Solo hay diferencias en el estimador de bebrooms. Este estiamdor no converge.
 
 LLegados a este punto, tendríamos que señalar:
 
-- el estimador de bedrooms es robutos (no converge)
-- las beta estimadas son pequeñas en magnitud, en algunos casos (sqft_lot) cercanas a cero. Esto tiene que ver: el modelo no se incluye la variable depediente en nivel sino en logaritmo. El modelo también se ha estimado con las variables de superficie en logaritmos. Los residuos se siguen comportando bien; pero continuan el problema de estimador no robusto de bedrooms.
+- el estimador de bedrooms no es robuto (no converge)
+- las beta estimadas son pequeñas en magnitud, en algunos casos (sqft_lot) cercanas a cero. Esto tiene que ver: el modelo no se incluye la variable depediente en nivel sino en logaritmo. El modelo también se ha estimado con las variables de superficie en logaritmos. Los residuos se siguen comportando relativamente bien; pero continuan el problema de estimador no robusto de bedrooms.
 - los estimadores asociados a latitud y longitud tienen "extraña interpretacion". Quizá habría que incluir un término en el que se recoja exclusivamene su interacción o comprobar la F del modelo con y sin ellos; ya que zipcode podría estar recogiendo toda la información relativa a ubicación.
 
 - Evaluación del modelo: comparacion de R adjusted en train y test.
@@ -1124,11 +1144,52 @@ Las variables con más poder explicativo por sí solas son sqft_living, grade y 
 
 ## -------------------------------------------------------------------------
 
-Modelos Ridge y Lasso
 
-Llegados a este punto, se podría optra por comparar distintos modelos OLS con exclusión/inclsuín step-by-step de distintas combinaciones de bathrooms, bedrroms, sqft-living y grade o por modelos con coefcientes de regularización como Lasso o Ridge. Para dar mayor "varaibilidad ;D" al al ejercicio se opta por esta segunda opción.
+Llegados a este punto, se podría optar por comparar distintos modelos OLS con exclusión/inclsuión step-by-step de distintas combinaciones de bathrooms, bedooms, sqft-living y grade () o por modelos con coeficientes de regularización como Lasso o Ridge. Para dar mayor "variabilidad ;D" al ejercicio se va a proceder en las dos direcciones. En primer lugar, se probrarán distintos modelo OSL con forward AIC y BIC, en sgundo lugar se aplicarán modelos con coeficientes de regularización.
 
-Los modelos de Regresión Ridge y Lasso son modelo con coeficiente de regularización para evitar que los coeficientes tomen valores muy elevados. En nuestro caso, no tenemos coeficientes elevados en la estimacion OLS ni en la estimación OLS robusta, no obstante como la matriz de correlaciones parece indicar que hay relaciones lineales altas entre variables independientes, vamos a proceder a su aplicación.
+## -------------------------------------------------------------------------
+
+### 3.3. Seleccion de OLS mediante forwards backwards AIC y BIC.
+
+AIC: utilizando la librería MASS
+
+```{r}
+fitAIC <- lm(logprice ~.,data=Train1)
+step <- stepAIC(fitAIC, direction="both")
+step$anova # display results
+```
+
+AIC forward and backward mantiene la misma estructura de modelo.
+
+
+BIC
+
+```{r}
+attach(Train1)
+stepwise(lm(logprice ~.), direction = c("backward/forward"), criterion = c("BIC",))
+```
+
+```{r}
+attach(Train1)
+step(lm(logprice ~ 1), logprice ~ bedrooms + bathrooms + sqft_living + sqft_lot + floors + waterfront+ view + grade +lat +long +catzip2 +renovated, direction = "forward", k = log(n))
+```
+
+Curiosamente, la única variable independiente para la que AIC y BIC arrojan criterios diferentes es bedrooms, que es la varaible cuyo estiamdor no era robusto. BIC la excluye. BIC en este tipo de procesos tiende a incluir un número menor de parametros.
+
+No hay un criterio claro respecto a bedrooms. Se procede a regresiones con coeficientes de regularización.
+
+## -------------------------------------------------------------------------
+
+
+## -------------------------------------------------------------------------
+
+### 3.4. Modelos con coefcientes de regularización
+
+
+## -------------------------------------------------------------------------
+
+
+Los modelos de Regresión Ridge y Lasso son modelo con coeficiente de regularización para evitar que los coeficientes tomen valores muy elevados. En nuestro caso, no tenemos coeficientes elevados en la estimacion OLS ni en la estimación OLS robusta, no obstante como la matriz de correlaciones parece indicar que hay relaciones lineales altas entre variables independientes, vamos a proceder a su aplicación. Bedrooms 
 
 - Se utilizan para corregir problemas de overfitting y de multicolinealidad.
 - Lasso también se utiliza para reducir la complejidad mediante selección de variables.
@@ -1286,12 +1347,11 @@ house_test$catzip <- ifelse(house_test$zipcode %in% zip1,1,
     
 ```                      
 
-Tabla de frecuecnias de la nueva varaible zip categorizada según percentiles y medianas de precios.
+Tabla de frecuencias de la nueva variable zip categorizada según percentiles y medianas de precios.
 
 ```{r}
 table(house_test$catzip)
 ``` 
-
 
 
 Se necesita un model objeto para poder utilizar la función predict. Con los coeficientes estimados del modelo Ridge no es posible realizarlo, con esta funcíon, sin construir manualmente el vector. Podría realizarse con el modelo OLS, antes de corregir por colinealidad -aunque sabemos que algunos estimadres no son muy robustos. Y mediante una función inversa de log calcular el price.
@@ -1303,6 +1363,7 @@ ridgecoef<-c(0, rcoefi[2], rcoefi[3], rcoefi[4], rcoefi[5],rcoefi[6], rcoefi[7],
 ```
 
 Multiplicación de matrices para la obtención de price en el data set house_test
+
 ```{r}
 drops33<-c("date")
 house_test_prediction<-house_test[ , !(names(house_test) %in% drops33)]

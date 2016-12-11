@@ -1,0 +1,95 @@
+---
+title: "Boruta (Adicional)"
+author: "Ainhoa Calvo Ejerique"
+date: "11/12/2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(caret)
+library(data.table)
+library(Boruta)
+library(plyr)
+library(dplyr)
+library(pROC)
+```
+
+
+Setting the working directory
+
+#```{r} 
+#setwd("~/Documents/Master Big Data/15 Programacion Estadistica/Practicas")
+#```
+
+```{r}
+library(caret)
+library(data.table)
+library(Boruta)
+library(plyr)
+library(dplyr)
+library(pROC)
+```
+
+```{r}
+house_train_boruta=read.csv("house_train.csv",stringsAsFactors = FALSE, sep=",")
+```
+
+```{r}
+drops1 <- c("date")
+house_train_boruta<-house_train_boruta[ , !(names(house_train_boruta) %in% drops1)]
+```
+
+```{r}
+house_train_boruta<-house_train_boruta[!duplicated(house_train_boruta[,1]),]
+```
+
+```{r}
+id_var<-"id"
+target_var<-"price"
+```
+
+```{r}
+independent<-setdiff(names(house_train_boruta), c(id_var, target_var))
+clases<-sapply(independent, function(x){class(house_train_boruta[[x]])})
+table(clases)
+pint(clases)
+```
+
+```{r}
+unique_ind<-unique(independent) # valores únicos
+atributos_independen<-lapply(unique_ind, function(x){names(clases[clases==x])})
+names(atributos_independen)<-unique_ind
+```
+
+```{r}
+precio<-house_train_boruta$price
+```
+
+```{r}
+house_train_boruta<-house_train_boruta[independent]
+```
+
+```{r}
+set.seed(123)
+boruta<-Boruta(house_train_boruta, precio, maxRuns = 100, doTrace = 0)
+```
+
+```{r}
+print(boruta)
+```
+
+Ningún atributo se considera "uniportant"
+
+```{r}
+plot(boruta)
+```
+
